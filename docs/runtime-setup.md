@@ -1,9 +1,10 @@
 # Runtime setup
 
-The pinned Blink fork includes committed compatibility fixes and rootless metadata
-support. `patches/blink.patch` preserves the additional experimental changes from
-the original workspace, including signal/epoll work, fault diagnostics and SSE dot
-product support. These are development patches, not claims of complete Linux semantics.
+The Blink submodule uses `brandonros/blink` branch `fix/macos-linux-userspace`,
+backing [PR #218](https://github.com/jart/blink/pull/218). Its commits include
+compatibility fixes, rootless metadata, experimental signal/epoll support, fault
+diagnostics and SSE dot-product support. Linux semantics remain incomplete.
+There is no separate runtime patch to apply.
 The epoll-shim submodule points to `brandonros/epoll-shim` commit `99adf8d`,
 which includes the repeated eventfd notification fix and regression test in
 [upstream PR #64](https://github.com/jiixyj/epoll-shim/pull/64).
@@ -11,8 +12,8 @@ The agent-platform submodule pins the Dockerfiles used for integration builds.
 
 ## macOS ARM64
 
-After initializing submodules and running `scripts/apply-runtime-patches.py`, build
-the shim and configure Blink from the repository root:
+After initializing submodules, build the shim and configure Blink from the
+repository root:
 
 ```sh
 cmake -S ext/epoll-shim -B target/epoll-shim-build \
@@ -61,3 +62,9 @@ are not distributed with the repository.
 Some internal `image-forge` identifiers are retained for compatibility with existing
 checkpoint paths and test fixtures. The package and repository are named
 `linux-oci-builder`.
+
+## Updating Blink
+
+Normal clones use the exact revision recorded by the builder. To advance to the
+configured PR branch, run `git submodule update --remote ext/blink`, validate the
+new runtime, then commit the updated submodule pointer in this repository.

@@ -26,7 +26,6 @@ compiler, CMake, and GNU Make 4+.
 ```sh
 git clone --recurse-submodules https://github.com/brandonros/linux-oci-builder.git
 cd linux-oci-builder
-python3 scripts/apply-runtime-patches.py
 
 # Pull an AMD64 Linux base image for Blink.
 cargo run -- docker.io/library/alpine:3.22 \
@@ -60,8 +59,10 @@ python3 scripts/test-build-targets.py
 python3 scripts/test-compare-oci.py
 ```
 
-Blink and epoll-shim are pinned submodules. Additional experimental Blink changes
-are preserved in `patches/blink.patch`; applying it leaves that submodule modified.
+Blink and epoll-shim are pinned submodules. All Blink runtime changes live on
+`brandonros/blink` branch `fix/macos-linux-userspace`, backing
+[upstream PR #218](https://github.com/jart/blink/pull/218). No patch application
+is needed after cloning.
 The epoll-shim fork includes the committed fix and regression test from
 [upstream PR #64](https://github.com/jiixyj/epoll-shim/pull/64).
 Only trusted build commands should be run: Blink's filesystem and virtual metadata

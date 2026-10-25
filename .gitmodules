@@ -1,6 +1,7 @@
 [submodule "ext/blink"]
 	path = ext/blink
 	url = https://github.com/brandonros/blink.git
+	branch = fix/macos-linux-userspace
 
 [submodule "ext/epoll-shim"]
 	path = ext/epoll-shim
