@@ -1,5 +1,5 @@
-/target/
-/image/
+/target
+/image
 *.log
 .DS_Store
 __pycache__/
