@@ -35,6 +35,7 @@ with tempfile.TemporaryDirectory(prefix='rust-stage-') as directory:
         assert build.rust_worker.process.pid == pid
         assert (output/'002-verify/stdout').read_bytes() == b'persisted123:456:0\n'
         assert json.loads((output/'002-verify/result.json').read_text())['cleanup_verified']
+        assert json.loads((output/'002-verify/result.json').read_text())['env']['RES_OPTIONS'] == 'use-vc'
         try:
             other = RustWorker(args.worker, root, output/'competing')
         except BlockingIOError:
@@ -70,7 +71,7 @@ with tempfile.TemporaryDirectory(prefix='rust-stage-') as directory:
     standalone = Path(directory)/'standalone'
     subprocess.run(['python3', str(Path(__file__).with_name('blink-checkpoint.py')),
         '--blink', str(args.worker.resolve()), '--runtime-kind', 'rust', '--rootless-metadata',
-        '--rootfs', str(root), '--output', str(standalone), '--uid', '17', '--gid', '19',
-        '--', '/bin/sh', '-c', 'id -u; id -g'], check=True)
-    assert (standalone/'stdout').read_bytes() == b'17\n19\n'
+        '--rootfs', str(root), '--output', str(standalone), '--dns-tcp', '--uid', '17', '--gid', '19',
+        '--', '/bin/sh', '-c', 'id -u; id -g; printf \"%s\\n\" \"$RES_OPTIONS\"'], check=True)
+    assert (standalone/'stdout').read_bytes() == b'17\n19\nuse-vc\n'
 print('Rust stage integration: PASS (reuse, metadata, failure/timeout recovery, receipts, locking, standalone checkpoint)')

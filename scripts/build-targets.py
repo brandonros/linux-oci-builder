@@ -247,7 +247,8 @@ class Build:
                 if self.rust_worker.digest != getattr(self, "runtime_digest", self.rust_worker.digest):
                     self.close()
                     raise ValueError("Rust runtime changed after build provenance was recorded")
-            self.rust_worker.checkpoint(evidence, argv, uid, gid, home, workdir, env, self.args.timeout)
+            self.rust_worker.checkpoint(evidence, argv, uid, gid, home, workdir,
+                                        {"RES_OPTIONS": "use-vc", **(env or {})}, self.args.timeout)
         else:
             subprocess.run(command, check=True)
         report = json.loads((evidence / "result.json").read_text())

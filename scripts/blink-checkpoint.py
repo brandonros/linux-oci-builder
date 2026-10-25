@@ -119,6 +119,8 @@ def main():
             parser.error("fakeroot prefix must be a guest absolute subdirectory")
         args.fakeroot_prefix = str(prefix)
     guest_env = {"HOME": args.home}
+    if args.dns_tcp:
+        guest_env["RES_OPTIONS"] = "use-vc"
     for item in args.env:
         key, separator, value = item.partition("=")
         if not separator or not key:
