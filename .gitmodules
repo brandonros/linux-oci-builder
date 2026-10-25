@@ -1,0 +1,11 @@
+[submodule "ext/blink"]
+	path = ext/blink
+	url = https://github.com/brandonros/blink.git
+
+[submodule "ext/epoll-shim"]
+	path = ext/epoll-shim
+	url = https://github.com/jiixyj/epoll-shim.git
+
+[submodule "ext/agent-platform"]
+	path = ext/agent-platform
+	url = https://github.com/brandonros/agent-platform.git

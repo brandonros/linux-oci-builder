@@ -1,0 +1,9 @@
+/target/
+/image/
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+/ext/epoll-shim-pr/
+/ext/mimalloc/
+/ext/openssl-3.5.7/
