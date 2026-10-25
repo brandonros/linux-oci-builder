@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: brandonros/blink
-          ref: d84468593af269840a915cad16ae54f0979b10c9
+          ref: 59420354c442b6e096b0c35a2591b33ca6d4e1fd
           path: work/blink
       - name: Install archive prerequisite on Linux
         if: runner.os == 'Linux'
@@ -38,3 +38,12 @@ jobs:
           python3 work/blink/rust/alpine-fixture.py --root work/alpine
       - name: Persistent stage integration
         run: python3 scripts/test-rust-worker.py --worker work/blink/target/release/blink-worker --root work/alpine
+      - name: Complete Debian image build and resume
+        run: |
+          cargo run --release --locked -- docker.io/library/debian@sha256:ec31d744f83f4a73447ba045aaab9409997efe5cc706eca4890c1be36cc1606a --platform linux/amd64 --output work/debian-oci
+          python3 scripts/test-rust-build.py --worker work/blink/target/release/blink-worker --base work/debian-oci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-build-${{ runner.os }}
+          path: target/rust-build-results.json

@@ -108,6 +108,18 @@ concurrent-root locking and standalone non-root commands. Run it with:
 python3 scripts/test-rust-worker.py --worker PATH_TO_BLINK_WORKER --root ALPINE_ROOT
 ```
 
+A separate complete-build gate uses pinned Debian bookworm, executes seven
+checkpoints through the persistent Rust worker, and assembles a two-layer OCI
+image. It verifies descriptor digests/sizes, uncompressed DiffIDs, image config,
+file content and layer ownership/mode headers, runs the image command after
+reconstructing its root, and confirms a completed-build resume changes no receipts.
+The reconstructed-root command checks content and loader resolution; it does not
+claim virtual metadata import from archive headers.
+
+```sh
+python3 scripts/test-rust-build.py --worker PATH_TO_BLINK_WORKER --base DEBIAN_OCI_LAYOUT
+```
+
 The full Claude-base/code-server builds, all 26 checkpoints and their OCI verifiers
 have **not** passed with Rust. This adapter establishes the integration path;
 remaining runtime compatibility gates still apply. Existing downloader,
