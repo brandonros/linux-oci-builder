@@ -1,0 +1,40 @@
+name: Rust stage worker
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: brandonros/blink
+          ref: d84468593af269840a915cad16ae54f0979b10c9
+          path: work/blink
+      - name: Install archive prerequisite on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+      - name: Rust builder checks
+        run: |
+          cargo test --all-targets --locked
+          cargo clippy --all-targets --locked -- -D warnings
+      - name: Existing archive and receipt checks
+        run: |
+          python3 scripts/test-oci-diff.py
+          python3 scripts/test-build-targets.py
+          python3 scripts/test-compare-oci.py
+      - name: Build pinned Rust runtime and prepare Alpine
+        run: |
+          cargo build --release --locked --manifest-path work/blink/Cargo.toml -p blink-cli
+          python3 work/blink/rust/alpine-fixture.py --root work/alpine
+      - name: Persistent stage integration
+        run: python3 scripts/test-rust-worker.py --worker work/blink/target/release/blink-worker --root work/alpine

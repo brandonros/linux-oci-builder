@@ -160,6 +160,7 @@ class Build:
         self.output = args.output.resolve()
         self.root = self.output / "rootfs"
         self.step = 0
+        self.rust_worker = None
         self.config = {}
         self.user = "root"
         self.workdir = "/"
@@ -197,6 +198,8 @@ class Build:
                    "--fakeroot-state", CONTROL + "/state", "--dns-tcp",
                    "--uid", str(uid), "--gid", str(gid), "--home", home,
                    "--workdir", workdir, "--timeout", str(self.args.timeout)]
+        if getattr(self.args, "runtime_kind", "c") == "rust":
+            command += ["--runtime-kind", "rust"]
         if not self.args.no_jit:
             command.append("--jit")
         if self.args.rootless_metadata:
@@ -237,7 +240,16 @@ class Build:
                     return
             raise ValueError("Incomplete checkpoint requires inspection before retry: " + str(evidence))
         print("RUN", evidence.name, shlex.join(argv), flush=True)
-        subprocess.run(command, check=True)
+        if getattr(self.args, "runtime_kind", "c") == "rust":
+            from rust_worker import RustWorker
+            if self.rust_worker is None:
+                self.rust_worker = RustWorker(self.args.blink, self.root, self.output / "runtime")
+                if self.rust_worker.digest != getattr(self, "runtime_digest", self.rust_worker.digest):
+                    self.close()
+                    raise ValueError("Rust runtime changed after build provenance was recorded")
+            self.rust_worker.checkpoint(evidence, argv, uid, gid, home, workdir, env, self.args.timeout)
+        else:
+            subprocess.run(command, check=True)
         report = json.loads((evidence / "result.json").read_text())
         # RUN descendants are terminated before the later snapshot/export step.
         # Older receipts only recorded attempted kills, not verified termination.
@@ -245,6 +257,11 @@ class Build:
                                            not report.get("cleanup_verified")):
             raise ValueError("Guest worker cleanup is unverified: " + str(evidence))
         receipt.write_text(json.dumps({"signature": signature, "complete": True}) + "\n")
+
+    def close(self):
+        if self.rust_worker is not None:
+            self.rust_worker.close()
+            self.rust_worker = None
 
     def prepare(self):
         base = self.args.base.resolve()
@@ -275,6 +292,9 @@ class Build:
                       "dockerfile": digest(self.args.dockerfile), "context": context_hashes,
                       "blink": digest(self.args.blink),
                       "fakeroot_packages": {p.name: digest(p) for p in self.args.fakeroot_deb}}
+        self.runtime_digest = provenance["blink"]
+        if getattr(self.args, "runtime_kind", "c") == "rust":
+            provenance["runtime_kind"] = "rust-worker-v1"
         if self.args.rootless_metadata:
             provenance["metadata_backend"] = "blink-rootless-v1"
         if self.args.stage:
@@ -500,6 +520,7 @@ class Build:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--blink", type=Path, required=True)
+    parser.add_argument("--runtime-kind", choices=["c", "rust"], default="c", help="Rust uses blink-worker with one persistent context per stage")
     parser.add_argument("--previous-blink", type=Path, help="Explicitly upgrade a resumed build runtime; previous completed checkpoint receipts are retained")
     parser.add_argument("--no-jit", action="store_true", help="Use Blink interpreter for remaining checkpoints; completed checkpoints retain their recorded mode")
     parser.add_argument("--fault-trace", action="store_true", help="Enable bounded Blink fault diagnostics for remaining checkpoints")
@@ -515,10 +536,15 @@ def main():
     args = parser.parse_args()
     if not args.rootless_metadata and not args.fakeroot_deb:
         parser.error("provide --fakeroot-deb packages or --rootless-metadata")
+    if args.runtime_kind == "rust" and (not args.rootless_metadata or not args.no_jit or args.fault_trace):
+        parser.error("Rust requires --rootless-metadata --no-jit and does not support --fault-trace")
     build = Build(args)
-    build.prepare()
-    build.execute()
-    build.export()
+    try:
+        build.prepare()
+        build.execute()
+        build.export()
+    finally:
+        build.close()
 
 
 if __name__ == "__main__":

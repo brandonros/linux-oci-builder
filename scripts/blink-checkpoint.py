@@ -87,6 +87,7 @@ def stop_escaped_workers(runtime, details=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--blink", type=Path, required=True)
+    parser.add_argument("--runtime-kind", choices=["c", "rust"], default="c")
     parser.add_argument("--rootfs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--uid", type=int, default=0)
@@ -133,6 +134,16 @@ def main():
         if not path.is_absolute() or ".." in path.parts or str(path).startswith("//"):
             parser.error("snapshot root must be a normalized guest absolute path")
         args.snapshot_root = str(path)
+    if args.runtime_kind == "rust":
+        if not args.rootless_metadata or args.jit or args.trace or args.fault_trace or args.snapshot_root is not None:
+            parser.error("Rust requires --rootless-metadata; JIT, trace and inline snapshots are unsupported")
+        from rust_worker import RustWorker
+        worker = RustWorker(args.blink, root, output.parent / (output.name + ".runtime"))
+        try:
+            worker.checkpoint(output, argv, args.uid, args.gid, args.home, args.workdir, guest_env, args.timeout)
+        finally:
+            worker.close()
+        return
     # These runners serialize mutations of a rootfs and its fakeroot database.
     # Older ad-hoc scripts do not honor this lock and must be stopped separately.
     with (root.parent / (root.name + ".checkpoint.lock")).open("a") as lock:
