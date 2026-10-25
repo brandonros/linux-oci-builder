@@ -3,8 +3,10 @@
 The pinned Blink fork includes committed compatibility fixes and rootless metadata
 support. `patches/blink.patch` preserves the additional experimental changes from
 the original workspace, including signal/epoll work, fault diagnostics and SSE dot
-product support. `patches/epoll-shim.patch` preserves repeated eventfd notification
-changes. These are development patches, not claims of complete Linux semantics.
+product support. These are development patches, not claims of complete Linux semantics.
+The epoll-shim submodule points to `brandonros/epoll-shim` commit `99adf8d`,
+which includes the repeated eventfd notification fix and regression test in
+[upstream PR #64](https://github.com/jiixyj/epoll-shim/pull/64).
 The agent-platform submodule pins the Dockerfiles used for integration builds.
 
 ## macOS ARM64

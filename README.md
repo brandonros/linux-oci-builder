@@ -60,8 +60,10 @@ python3 scripts/test-build-targets.py
 python3 scripts/test-compare-oci.py
 ```
 
-Blink and epoll-shim are pinned submodules with experimental changes preserved in
-`patches/`. Applying those patches intentionally leaves these submodules modified.
+Blink and epoll-shim are pinned submodules. Additional experimental Blink changes
+are preserved in `patches/blink.patch`; applying it leaves that submodule modified.
+The epoll-shim fork includes the committed fix and regression test from
+[upstream PR #64](https://github.com/jiixyj/epoll-shim/pull/64).
 Only trusted build commands should be run: Blink's filesystem and virtual metadata
 support are not a security sandbox. Linux compatibility and JIT correctness remain
 incomplete; some validated build stages required interpreter mode.

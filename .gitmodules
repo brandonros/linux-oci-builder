@@ -4,7 +4,7 @@
 
 [submodule "ext/epoll-shim"]
 	path = ext/epoll-shim
-	url = https://github.com/jiixyj/epoll-shim.git
+	url = https://github.com/brandonros/epoll-shim.git
 
 [submodule "ext/agent-platform"]
 	path = ext/agent-platform
