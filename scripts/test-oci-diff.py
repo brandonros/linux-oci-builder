@@ -62,12 +62,14 @@ class ChangesetTests(unittest.TestCase):
                 self.assertEqual(t.getmember("metadata").uid, 1000)
                 self.assertEqual(t.getmember("metadata").mode, 0o755)
                 self.assertEqual(t.getmember("link").linkname, "/new")
+            # Explicitly retain absolute symlinks in this generated trusted fixture
+            # on Python 3.14, whose default extraction filter rejects them.
             # Apply this trusted fixture with OCI replacement semantics: regular
             # file replacement unlinks the old inode instead of modifying links.
             root = p / "root"
             root.mkdir()
             with tarfile.open(p / "before") as t:
-                t.extractall(root)
+                t.extractall(root, filter="fully_trusted")
             with tarfile.open(p / "delta") as t:
                 for member in t:
                     target = root / member.name
@@ -80,7 +82,7 @@ class ChangesetTests(unittest.TestCase):
                     else:
                         if not member.isdir() and (target.exists() or target.is_symlink()):
                             target.unlink()
-                        t.extract(member, root)
+                        t.extract(member, root, filter="fully_trusted")
             self.assertEqual(set(x.name for x in root.iterdir()), {"keep", "swap", "a", "b", "metadata", "link"})
             self.assertEqual((root / "a").read_bytes(), b"new")
             self.assertEqual((root / "a").stat().st_ino, (root / "b").stat().st_ino)

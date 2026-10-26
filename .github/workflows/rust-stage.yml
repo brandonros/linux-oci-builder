@@ -1,0 +1,56 @@
+name: Rust stage worker
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: brandonros/blink
+          ref: 59420354c442b6e096b0c35a2591b33ca6d4e1fd
+          path: work/blink
+      - name: Install archive prerequisite on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+      - name: Rust builder checks
+        run: |
+          cargo test --all-targets --locked
+          cargo clippy --all-targets --locked -- -D warnings
+      - name: Existing archive and receipt checks
+        run: |
+          python3 scripts/test-oci-diff.py
+          python3 scripts/test-build-targets.py
+          python3 scripts/test-compare-oci.py
+      - name: Build pinned Rust runtime and prepare Alpine
+        run: |
+          cargo build --release --locked --manifest-path work/blink/Cargo.toml -p blink-cli
+          python3 work/blink/rust/alpine-fixture.py --root work/alpine
+      - name: Persistent stage integration
+        run: python3 scripts/test-rust-worker.py --worker work/blink/target/release/blink-worker --root work/alpine
+      - name: Complete Debian image build and resume
+        run: |
+          cargo run --release --locked -- docker.io/library/debian@sha256:ec31d744f83f4a73447ba045aaab9409997efe5cc706eca4890c1be36cc1606a --platform linux/amd64 --output work/debian-oci
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            hdiutil create -size 8g -type SPARSE -fs 'Case-sensitive APFS' -volname RustBuild "$RUNNER_TEMP/rust-build.sparseimage"
+            mkdir -p "$RUNNER_TEMP/rust-build"
+            hdiutil attach "$RUNNER_TEMP/rust-build.sparseimage" -mountpoint "$RUNNER_TEMP/rust-build" -nobrowse
+            trap 'hdiutil detach "$RUNNER_TEMP/rust-build"' EXIT
+            export TMPDIR="$RUNNER_TEMP/rust-build"
+          fi
+          python3 scripts/test-rust-build.py --worker work/blink/target/release/blink-worker --base work/debian-oci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rust-build-${{ runner.os }}
+          path: target/rust-build-results.json

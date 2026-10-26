@@ -72,3 +72,55 @@ incomplete; some validated build stages required interpreter mode.
 - [Runtime setup and known limitations](docs/runtime-setup.md)
 - [Reusable Rust runtime plan](docs/blink-rs-plan.md)
 - [Historical build notes and validation evidence](docs/build-history.md)
+
+## Experimental Rust stage runtime
+
+The C runtime remains the default. `--runtime-kind rust` selects the separate
+`blink-worker` binary from [the Rust Blink port](https://github.com/brandonros/blink/pull/4):
+
+```sh
+python3 scripts/build-targets.py --runtime-kind rust \
+  --blink /path/to/blink/target/release/blink-worker \
+  --rootless-metadata --no-jit \
+  --base BASE_OCI --context CONTEXT --dockerfile Dockerfile --output BUILD
+```
+
+Each build stage owns one persistent Rust runtime context; every checkpoint
+starts a fresh guest process tree. Filesystem changes and virtual metadata persist.
+Checkpoint logs, runtime hashes, timeout outcomes, completed receipts and resume
+validation are retained. Runtime kind is included in provenance so completed C
+builds cannot silently resume under Rust. Unsupported operations fail explicitly;
+there is no C fallback. The Rust backend currently requires rootless metadata and
+interpreter mode. Guest stdin is EOF. Networking is enabled for build commands,
+subject to the Rust runtime's implemented socket behavior and host policy.
+
+`blink-checkpoint.py --runtime-kind rust --rootless-metadata` also supports a
+standalone checkpoint. It does not support the C backend's inline snapshot,
+fault-trace or JIT flags. The stage root lock is inherited by the worker so it
+remains held if the orchestration process dies during a command; command timeouts
+still bound execution. Normal shutdown explicitly closes the context and worker.
+
+Validation covers persistent stage execution, virtual ownership/mode retention,
+nonzero-exit and timeout recovery, unchanged completed receipts on resume,
+concurrent-root locking and standalone non-root commands. Run it with:
+
+```sh
+python3 scripts/test-rust-worker.py --worker PATH_TO_BLINK_WORKER --root ALPINE_ROOT
+```
+
+A separate complete-build gate uses pinned Debian bookworm, executes seven
+checkpoints through the persistent Rust worker, and assembles a two-layer OCI
+image. It verifies descriptor digests/sizes, uncompressed DiffIDs, image config,
+file content and layer ownership/mode headers, runs the image command after
+reconstructing its root, and confirms a completed-build resume changes no receipts.
+The reconstructed-root command checks content and loader resolution; it does not
+claim virtual metadata import from archive headers.
+
+```sh
+python3 scripts/test-rust-build.py --worker PATH_TO_BLINK_WORKER --base DEBIAN_OCI_LAYOUT
+```
+
+The full Claude-base/code-server builds, all 26 checkpoints and their OCI verifiers
+have **not** passed with Rust. This adapter establishes the integration path;
+remaining runtime compatibility gates still apply. Existing downloader,
+Dockerfile handling and OCI assembly remain unchanged.
