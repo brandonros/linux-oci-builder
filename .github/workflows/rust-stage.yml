@@ -41,6 +41,13 @@ jobs:
       - name: Complete Debian image build and resume
         run: |
           cargo run --release --locked -- docker.io/library/debian@sha256:ec31d744f83f4a73447ba045aaab9409997efe5cc706eca4890c1be36cc1606a --platform linux/amd64 --output work/debian-oci
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            hdiutil create -size 8g -type SPARSE -fs 'Case-sensitive APFS' -volname RustBuild "$RUNNER_TEMP/rust-build.sparseimage"
+            mkdir -p "$RUNNER_TEMP/rust-build"
+            hdiutil attach "$RUNNER_TEMP/rust-build.sparseimage" -mountpoint "$RUNNER_TEMP/rust-build" -nobrowse
+            trap 'hdiutil detach "$RUNNER_TEMP/rust-build"' EXIT
+            export TMPDIR="$RUNNER_TEMP/rust-build"
+          fi
           python3 scripts/test-rust-build.py --worker work/blink/target/release/blink-worker --base work/debian-oci
       - uses: actions/upload-artifact@v4
         if: always()
